@@ -47,11 +47,11 @@ int main()
 
     GLSLProgram shaderProgram;
     try {                                                 
-        shaderProgram.compileShader ("../res/Shaders/triangle.vert", GL_VERTEX_SHADER);                    
-        shaderProgram.compileShader ("../res/Shaders/triangle.frag", GL_FRAGMENT_SHADER);
+        shaderProgram.compileShader ("../res/Shaders/triangle.vert");                    
+        shaderProgram.compileShader ("../res/Shaders/triangle.frag");
         shaderProgram.link();
         shaderProgram.use();
-    } catch (GLSLProgramException &ex) {
+    } catch (const GLSLProgramException &ex) {
         std::cout << ex.what() << std::endl;
     }
 
@@ -62,18 +62,18 @@ int main()
  
     glBindVertexArray (VAO[0]);
     glBindBuffer (GL_ARRAY_BUFFER, VAO[0]);
-    glBufferData (GL_ARRAY_BUFFER, sizeof(first_triangle), first_triangle, GL_STATIC_DRAW);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glBufferData (GL_ARRAY_BUFFER, sizeof (first_triangle), first_triangle, GL_STATIC_DRAW);
+    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof (float), (void*)0);
     glEnableVertexAttribArray (0);
-    glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3*sizeof (float)));
+    glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof (float), (void*)(3*sizeof (float)));
     glEnableVertexAttribArray (1);
 
     glBindVertexArray (VAO[1]);
     glBindBuffer (GL_ARRAY_BUFFER, VAO[1]);
-    glBufferData (GL_ARRAY_BUFFER, sizeof(second_triangle), second_triangle, GL_STATIC_DRAW);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 2 * 3 * sizeof(float), (void*)0);
+    glBufferData (GL_ARRAY_BUFFER, sizeof (second_triangle), second_triangle, GL_STATIC_DRAW);
+    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 2 * 3 * sizeof (float), (void*)0);
     glEnableVertexAttribArray (0);                                                                     
-    glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3*sizeof (float)));
+    glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof (float), (void*)(3*sizeof (float)));
     glEnableVertexAttribArray (1);
 
     //glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
@@ -85,11 +85,9 @@ int main()
         glClearColor (0.2f, 0.3f, 0.3f, 1.0f);
         glClear (GL_COLOR_BUFFER_BIT);
 
-        //glUseProgram (firstShaderProgram);
         glBindVertexArray (VAO[0]); 
         glDrawArrays (GL_TRIANGLES, 0, 3);
 
-        //glUseProgram (secondShaderProgram);
         glBindVertexArray (VAO[1]); 
         glDrawArrays (GL_TRIANGLES, 0, 3);
        
@@ -124,39 +122,6 @@ GLFWwindow *initGLFWwindowAndGlad (int major_ver, int minor_ver, int profile, un
         throw std::exception ("Can't init glad");
 
     return  window;
-}
-
-int getCompiledShader (int type, const char **source, int *success)
-{
-    int shader = glCreateShader (type);
-    glShaderSource (shader, 1, source, NULL);
-    glCompileShader (shader);
-
-    glGetShaderiv (shader, GL_COMPILE_STATUS, success);
-
-    return shader;
-}
-
-int getLinkedVertexAndFragmentShaers (int vert_shader, int frag_shader, int *success)
-{
-    int shader_program = glCreateProgram();
-    glAttachShader (shader_program, vert_shader);
-    glAttachShader (shader_program, frag_shader);
-    glLinkProgram  (shader_program);
- 
-    glGetProgramiv (shader_program, GL_LINK_STATUS, success);
-
-    return shader_program;
-}
-
-void shaderNotSuccesErrorOut (int shader, int succes, const char *msg)
-{
-    static char info_log[512] = {};
-    if (!succes)
-    { 
-        glGetShaderInfoLog (shader, 512, NULL, info_log);
-        std::cout << msg << info_log << std::endl;
-    }
 }
 
 void processInput(GLFWwindow* window)

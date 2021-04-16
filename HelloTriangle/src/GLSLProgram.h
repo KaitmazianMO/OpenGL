@@ -8,29 +8,65 @@
 #include <glad/glad.h>
 #include <cassert>
 #include <sys/stat.h>
+#include <algorithm>
 
 #include <iostream>
 
-class GLSLProgramException : public std::runtime_error 
+namespace ShaderInfo
+{
+    struct ShaderFileExtension
+    {
+        const char *ext;
+        GLenum type;
+    };
+
+    static ShaderFileExtension extensions[] = {
+        { ".vs",   GL_VERTEX_SHADER },
+        { ".vert", GL_VERTEX_SHADER },
+        { ".gs",   GL_GEOMETRY_SHADER },
+        { ".geom", GL_GEOMETRY_SHADER },
+        { ".tcs",  GL_TESS_CONTROL_SHADER },
+        { ".tes",  GL_TESS_EVALUATION_SHADER },
+        { ".fs",   GL_FRAGMENT_SHADER },
+        { ".frag", GL_FRAGMENT_SHADER },
+        { ".cs",   GL_COMPUTE_SHADER }
+    };
+    static const size_t nShaderTypes = 6;
+
+    GLenum translateFileExtension (const char *fileName);
+}
+
+class GLSLProgramException 
 {
 public:
     GLSLProgramException (const std::string &msg) 
-        : std::runtime_error(msg) {}
+        : m_what (msg) {}
 
     GLSLProgramException (const char *msg)
-        : std::runtime_error(msg) {}
+        : m_what(msg) {}
+    
+    GLSLProgramException (GLuint handle, GLenum handleType, 
+          const char *headMessege = "");
+
+    std::string what() const;
+
+private:
+    std::string m_what;
 };
 
 class GLSLProgram 
 {
 public:
+    using uniformTable = std::map <std::string, int>;
+
     GLSLProgram();
    ~GLSLProgram();
-
+                                 
     void   compileShader (const char *fileName);
     void   compileShader (const char *fileName, GLenum type);
     void   compileShader (const char *sourse, GLenum type,
            const char *fileName);
+
     void   link();
     void   validate();
     void   use() const;
@@ -56,18 +92,14 @@ public:
     const char *getTypeString (GLenum type);
 
 private:
-    static const size_t nShaderTypes = 6;
-    GLuint handle_;
-    bool   linked_;
-    GLuint shaders_ [nShaderTypes];
-    std::map <std::string, int> uniformLocations;
+    GLuint       m_programHandle;
+    bool         m_isLinked;
+    GLuint       m_shaderHandels [ShaderInfo::nShaderTypes];
+    uniformTable m_uniformLocations;
 
-    void  throwErrorLogException  (GLuint handle, GLenum handleType, 
-          const char *headMessege = "") const;
-    int   getShaderIndex     (GLenum type) const;
-    GLint getUniformLocation (const char *name);
-    bool  fileExists         (const std::string &fileName);
-    std::string getExtension (const char *fileName);
+    int    getShaderIndex     (GLenum type) const;
+    GLint  getUniformLocation (const char *name);
+    bool   fileExists         (const std::string &fileName);
     
     GLSLProgram             (const GLSLProgram &other) = delete;
     GLSLProgram &operator = (const GLSLProgram &other) = delete;

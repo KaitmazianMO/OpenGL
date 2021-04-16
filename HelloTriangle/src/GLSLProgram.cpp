@@ -8,19 +8,25 @@ static size_t      getFileSize (FILE *file);
 
 
 GLSLProgram::GLSLProgram()
-    : handle_ (glCreateProgram()), linked_ (false), shaders_()
+    : m_programHandle (glCreateProgram()), m_isLinked (false), m_shaderHandels()
 {
-    if (handle_ == 0)
+    if (m_programHandle == 0)
         throw GLSLProgramException ("Can't create a program");
 }
 
 GLSLProgram::~GLSLProgram()
 {
-    for (const auto &handle : shaders_)
+    for (const auto &handle : m_shaderHandels)
         if (handle)
             glDeleteShader (handle);
     
-    glDeleteProgram (handle_);
+    glDeleteProgram (m_programHandle);
+}
+
+void GLSLProgram::compileShader (const char *fileName)
+{
+    GLenum shaderType = ShaderInfo::translateFileExtension (fileName);
+    compileShader (fileName, shaderType);
 }
 
 void GLSLProgram::compileShader (const char *fileName, GLenum type)
@@ -33,6 +39,8 @@ void GLSLProgram::compileShader (const char *fileName, GLenum type)
 
     char *shaderSourse = readFile (shaderFile);
     assert (shaderSourse);
+    
+    fclose (shaderFile);
 
     compileShader (shaderSourse, type, fileName);
 
@@ -48,22 +56,56 @@ void GLSLProgram::compileShader (const char *sourse, GLenum type, const char *fi
     if (index < 0)
         throw GLSLProgramException ("Invalid shader type value");
 
-    shaders_[index] = glCreateShader (type);
-    if (shaders_[index] == 0)
+    m_shaderHandels[index] = glCreateShader (type);
+    if (m_shaderHandels[index] == 0)
         throw GLSLProgramException (std::string (fileName) + "\nCan't create a shader");
     
-    glShaderSource (shaders_[index], 1, &sourse, nullptr);
-    glCompileShader (shaders_[index]);
+    glShaderSource (m_shaderHandels[index], 1, &sourse, nullptr);
+    glCompileShader (m_shaderHandels[index]);
     
-    glGetShaderiv (shaders_[index], GL_COMPILE_STATUS, &SUCCESS);
+    glGetShaderiv (m_shaderHandels[index], GL_COMPILE_STATUS, &SUCCESS);
     if (SUCCESS == GL_FALSE)
-        throwErrorLogException (shaders_[index], type, fileName);
+        throw GLSLProgramException (m_shaderHandels[index], type, fileName);
     
-    glAttachShader (handle_, shaders_[index]);
+    glAttachShader (m_programHandle, m_shaderHandels[index]);
 }
 
-void GLSLProgram::throwErrorLogException (GLuint handle, GLenum handleType, 
-    const char *headMessege) const
+void GLSLProgram::link()
+{
+    glLinkProgram (m_programHandle);
+
+    glGetProgramiv (m_programHandle, GL_LINK_STATUS, &SUCCESS);
+    if (SUCCESS == GL_FALSE)
+        throw GLSLProgramException (m_programHandle, GL_PROGRAM);
+
+    m_isLinked = GL_TRUE;
+}
+
+void GLSLProgram::use() const
+{
+    if (!m_isLinked || m_programHandle == 0)
+        throw GLSLProgramException ("Program was not linked");
+    
+    glUseProgram (m_programHandle);
+}
+
+bool GLSLProgram::isLinked() const
+{
+    return m_isLinked;
+}
+
+bool isShader (GLenum type)
+{
+    return type == GL_VERTEX_SHADER          ||
+           type == GL_FRAGMENT_SHADER        ||
+           type == GL_GEOMETRY_SHADER        ||
+           type == GL_TESS_CONTROL_SHADER    ||
+           type == GL_TESS_EVALUATION_SHADER ||
+           type == GL_COMPUTE_SHADER;
+}
+
+GLSLProgramException::GLSLProgramException (GLuint handle, GLenum handleType, 
+    const char *headMessege)
 {           
     assert (headMessege);
 
@@ -89,41 +131,12 @@ void GLSLProgram::throwErrorLogException (GLuint handle, GLenum handleType,
         delete [] logMessage;
     }
 
-    throw GLSLProgramException (formatedMessage.c_str());
+    m_what = formatedMessage.c_str();
 }
 
-void GLSLProgram::link()
+std::string GLSLProgramException::what() const
 {
-    glLinkProgram (handle_);
-
-    glGetProgramiv (handle_, GL_LINK_STATUS, &SUCCESS);
-    if (SUCCESS == GL_FALSE)
-        throwErrorLogException (handle_, GL_PROGRAM, "");
-
-    linked_ = GL_TRUE;
-}
-
-void GLSLProgram::use() const
-{
-    if (!linked_ || handle_ == 0)
-        throw GLSLProgramException ("Program was not linked");
-    
-    glUseProgram (handle_);
-}
-
-bool GLSLProgram::isLinked() const
-{
-    return linked_;
-}
-
-bool isShader (GLenum type)
-{
-    return type == GL_VERTEX_SHADER          ||
-           type == GL_FRAGMENT_SHADER        ||
-           type == GL_GEOMETRY_SHADER        ||
-           type == GL_TESS_CONTROL_SHADER    ||
-           type == GL_TESS_EVALUATION_SHADER ||
-           type == GL_COMPUTE_SHADER;
+    return m_what;
 }
 
 bool isProgram (GLenum type)
@@ -144,6 +157,23 @@ int GLSLProgram::getShaderIndex (GLenum type) const
         default                        : return -1;
     }
     return -1;
+}
+
+GLenum ShaderInfo::translateFileExtension (const char *fileName)
+{
+    const char *fileExtension = strrchr (fileName, '.');
+    if (!fileExtension)
+        throw GLSLProgramException ("The file" + std::string (fileName) + "has no extension");
+
+
+    for (const auto &ext : extensions)
+    {
+        if (strcmp (fileExtension, ext.ext) == 0)
+            return ext.type;
+    }
+
+    throw GLSLProgramException ("The file" + std::string (fileName) + "has invalid extension");
+    return 0;    
 }
 
 std::string matchTypeToError (GLenum type)
